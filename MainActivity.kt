@@ -1,6 +1,3 @@
-// ===============================
-// File: app/src/main/java/com/maxli/coursegpa/MainActivity.kt
-// ===============================
 package com.maxli.coursegpa
 
 import android.app.Application
@@ -12,10 +9,12 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.livedata.observeAsState
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Alignment.Companion.CenterHorizontally
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
@@ -60,13 +59,158 @@ class MainActivity : ComponentActivity() {
                                 LocalContext.current.applicationContext as Application
                             )
                         )
-                        ScreenSetup(viewModel)
+                        TabScreen(viewModel)
                     }
                 }
             }
         }
     }
 }
+
+@Composable
+fun TabScreen(viewModel: MainViewModel) {
+    var tabIndex by remember { mutableIntStateOf(0) }
+    val tabs = listOf("Acad", "Trivial")
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        TabRow(selectedTabIndex = tabIndex) {
+            tabs.forEachIndexed { index, title ->
+                Tab(text = { Text(title) },
+                    selected = tabIndex == index,
+                    onClick = { tabIndex = index }
+                )
+            }
+        }
+        when (tabIndex) {
+            0 -> ScreenSetup(viewModel)
+            1 -> TrivialScreen(viewModel)
+        }
+    }
+}
+
+@Composable
+fun TrivialScreen(viewModel: MainViewModel) {
+    val allQuestions by viewModel.allTrivialQuestions.observeAsState(listOf())
+    var numberOfQuestions by remember { mutableStateOf("") }
+    var questions by remember { mutableStateOf<List<TrivialQuestion>>(emptyList()) }
+    val (selectedAnswers, setSelectedAnswers) = remember { mutableStateOf<Map<Int, String>>(emptyMap()) }
+    var score by remember { mutableStateOf<String?>(null) }
+    var isError by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(8.dp),
+        horizontalAlignment = CenterHorizontally
+    ) {
+        Row {
+            Button(onClick = {
+                viewModel.loadTriviaQuestions()
+                questions = allQuestions.shuffled()
+                setSelectedAnswers(emptyMap())
+                score = null
+            }) {
+                Text("Load")
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Button(onClick = {
+                val num = numberOfQuestions.toIntOrNull()
+                if (num != null && num > 0 && num <= 10) {
+                    isError = false
+                    questions = allQuestions.shuffled().take(num)
+                    setSelectedAnswers(emptyMap())
+                    score = null
+                } else {
+                    isError = true
+                }
+            }) {
+                Text("Go")
+            }
+        }
+
+        CustomTextField(
+            title = "Number of Questions",
+            textState = numberOfQuestions,
+            onTextChange = { 
+                numberOfQuestions = it
+                isError = false
+             },
+            keyboardType = KeyboardType.Number,
+            isError = isError,
+            errorMessage = "Enter a number between 1 and 10"
+        )
+
+        LazyColumn(
+            modifier = Modifier.weight(1f)
+        ) {
+            items(questions) { question ->
+                QuestionCard(
+                    question = question,
+                    selectedAnswer = selectedAnswers[question.id],
+                    onAnswerSelected = {
+                        val newAnswers = selectedAnswers.toMutableMap()
+                        newAnswers[question.id] = it
+                        setSelectedAnswers(newAnswers)
+                    }
+                )
+            }
+        }
+
+        Button(
+            onClick = {
+                var correct = 0
+                questions.forEach { question ->
+                    if (selectedAnswers[question.id] == question.correctAnswer) {
+                        correct++
+                    }
+                }
+                score = "$correct/${questions.size}"
+            },
+            enabled = selectedAnswers.size == questions.size && questions.isNotEmpty()
+        ) {
+            Text("Grade")
+        }
+
+        score?.let {
+            Text("Your score: $it", style = MaterialTheme.typography.headlineSmall)
+        }
+    }
+}
+
+@Composable
+fun QuestionCard(question: TrivialQuestion, selectedAnswer: String?, onAnswerSelected: (String) -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+    ) {
+        Column(modifier = Modifier.padding(8.dp)) {
+            Text(text = question.questionName, fontWeight = FontWeight.Bold)
+            val choices = listOf("A", "B", "C", "D")
+            val choiceText = listOf(question.choiceA, question.choiceB, question.choiceC, question.choiceD)
+
+            choices.forEachIndexed { index, choice ->
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .selectable(
+                            selected = (selectedAnswer == choice),
+                            onClick = { onAnswerSelected(choice) }
+                        )
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    RadioButton(
+                        selected = (selectedAnswer == choice),
+                        onClick = { onAnswerSelected(choice) }
+                    )
+                    Text(text = "$choice. ${choiceText[index]}")
+                }
+            }
+        }
+    }
+}
+
 
 @Composable
 fun ScreenSetup(viewModel: MainViewModel) {
@@ -270,7 +414,7 @@ private fun HeaderSection() {
         )
     }
 
-    Divider(
+    HorizontalDivider(
         color = MaterialTheme.colorScheme.tertiary,
         thickness = 3.dp
     )
@@ -312,7 +456,7 @@ fun TitleRow(head1: String, head2: String, head3: String, head4: String) {
             Text(head4, modifier = Modifier.weight(0.20f), color = color, fontWeight = FontWeight.Bold)
         }
 
-        Divider(color = MaterialTheme.colorScheme.tertiary, thickness = 2.dp)
+        HorizontalDivider(color = MaterialTheme.colorScheme.tertiary, thickness = 2.dp)
     }
 }
 
