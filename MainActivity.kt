@@ -73,14 +73,23 @@ fun TabScreen(viewModel: MainViewModel) {
     val tabs = listOf("Acad", "Trivial")
 
     Column(modifier = Modifier.fillMaxWidth()) {
-        TabRow(selectedTabIndex = tabIndex) {
+
+        TabRow(
+            selectedTabIndex = tabIndex,
+            containerColor = MaterialTheme.colorScheme.secondary,   // background of tab row
+            contentColor = MaterialTheme.colorScheme.onSecondary    // default text color
+        ) {
             tabs.forEachIndexed { index, title ->
-                Tab(text = { Text(title) },
+                Tab(
                     selected = tabIndex == index,
-                    onClick = { tabIndex = index }
+                    onClick = { tabIndex = index },
+                    text = { Text(title) },
+                    selectedContentColor = MaterialTheme.colorScheme.tertiary,
+                    unselectedContentColor = MaterialTheme.colorScheme.onSecondary
                 )
             }
         }
+
         when (tabIndex) {
             0 -> ScreenSetup(viewModel)
             1 -> TrivialScreen(viewModel)
